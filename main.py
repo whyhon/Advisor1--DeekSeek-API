@@ -41,20 +41,15 @@ PRELOADED_KNOWLEDGE = """
 
 st.title(GPT_NAME)
 st.subheader(GPT_DESCRIPTION)
-#st.write(GPT_INSTRUCTIONS)
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Initialize the DeepSeek client
+client = OpenAI(api_key=st.secrets["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
 
 # Set initial model and session states
 if "openai_model" not in st.session_state:
-    st.session_state["openai_model"] = "gpt-4o-mini"
-
+    st.session_state["openai_model"] = "deepseek-chat"  # Ensure this is the correct model name
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": starter} for starter in CONVERSATION_STARTERS]
-
-# Display preloaded knowledge
-#with st.expander("Preloaded Knowledge"):
-    #st.markdown(PRELOADED_KNOWLEDGE)
 
 # Display previous messages
 for message in st.session_state.messages:
@@ -68,18 +63,22 @@ if prompt := st.chat_input("Ask me anything!"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # Include the preloaded knowledge in the context
-        stream = client.chat.completions.create(
-            model=st.session_state["openai_model"],
-            messages=[
-                {"role": "system", "content": GPT_INSTRUCTIONS},
-                {"role": "system", "content": f"Preloaded Knowledge: {PRELOADED_KNOWLEDGE}"},
-                *[
-                    {"role": message["role"], "content": message["content"]}
-                    for message in st.session_state.messages
+        try:
+            # Include the preloaded knowledge in the context
+            stream = client.chat.completions.create(
+                model=st.session_state["openai_model"],
+                messages=[
+                    {"role": "system", "content": GPT_INSTRUCTIONS + "\n\n" + PRELOADED_KNOWLEDGE},
+                    *[
+                        {"role": message["role"], "content": message["content"]}
+                        for message in st.session_state.messages
+                    ],
                 ],
-            ],
-            stream=True,
-        )
-        response = st.write_stream(stream)
+                stream=True,
+            )
+            response = st.write_stream(stream)
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+            response = "Sorry, I encountered an error while processing your request."
+
     st.session_state.messages.append({"role": "assistant", "content": response})
